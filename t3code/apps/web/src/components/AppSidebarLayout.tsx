@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { FolderIcon, GlobeIcon } from "lucide-react";
 
 import ThreadSidebar from "./Sidebar";
 import { Sidebar, SidebarProvider, SidebarRail } from "./ui/sidebar";
@@ -66,6 +67,20 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           storageKey: THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
         }}
       >
+        <div className="flex gap-1 border-border border-b px-2 py-2">
+          <Link
+            to="/files"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs hover:bg-muted"
+          >
+            <FolderIcon className="size-3.5" /> Files
+          </Link>
+          <Link
+            to="/preview"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs hover:bg-muted"
+          >
+            <GlobeIcon className="size-3.5" /> Preview
+          </Link>
+        </div>
         <ThreadSidebar />
         <SidebarRail />
       </Sidebar>
