@@ -1,0 +1,18 @@
+[Unit]
+Description=vArena gateway — Firebase auth + reverse proxy
+After=network.target varena.service
+Wants=varena.service
+
+[Service]
+Type=simple
+User=varena
+WorkingDirectory=/opt/varena/gateway
+# All config (T3_BEARER, GATEWAY_SECRET, ALLOWLIST, Firebase, SA path) lives in this env file.
+EnvironmentFile=/opt/varena/gateway/.env
+ExecStart=/usr/bin/env node server.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

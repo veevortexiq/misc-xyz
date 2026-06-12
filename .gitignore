@@ -1,0 +1,26 @@
+# ---- SECRETS (never commit) ----
+secrets/
+**/*-sa.json
+**/serviceAccount*.json
+*.pem
+.env
+**/.env
+!**/.env.example
+
+# ---- vArena runtime state ----
+vArena-data/
+*.sqlite
+
+# ---- deps / build output (rebuilt on the box) ----
+node_modules/
+**/node_modules/
+**/dist/
+**/dist-electron/
+.vite-plus/
+**/.vite-plus/
+*.log
+.DS_Store
+
+# ---- local task/tmp ----
+.claude/
+t3code/.repos/

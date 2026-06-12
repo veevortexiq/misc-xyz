@@ -1,0 +1,18 @@
+{
+  "name": "varena-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Firebase (Gmail) auth gateway + reverse proxy in front of a shared vArena instance",
+  "bin": { "varena-gateway": "server.mjs" },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "cookie": "^1.0.2",
+    "firebase-admin": "^13.0.2",
+    "http-proxy": "^1.18.1",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

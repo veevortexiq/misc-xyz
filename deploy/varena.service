@@ -1,0 +1,19 @@
+[Unit]
+Description=vArena (t3) server — shared instance
+After=network.target
+
+[Service]
+Type=simple
+User=varena
+WorkingDirectory=/opt/varena/t3code
+# vArena binds loopback only; the gateway is the sole public entry.
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/env node apps/server/dist/bin.mjs serve --no-browser --host 127.0.0.1 --port 3773 --base-dir /var/lib/varena/data
+Restart=on-failure
+RestartSec=3
+# Harden a little (shared trusted-team instance; not a sandbox against malicious users).
+NoNewPrivileges=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

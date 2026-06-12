@@ -1,0 +1,23 @@
+# vArena TLS reverse proxy.
+# Firebase web SDK needs a secure context. Let's Encrypt will NOT issue for a bare IP,
+# so use an internal/self-signed cert via `tls internal` (browsers warn) OR put a real
+# domain here and let Caddy auto-TLS. The host IP is already in Firebase authorized domains.
+
+# --- Option A: bare IP with Caddy's internal CA (self-signed; browser trust warning) ---
+https://172.190.70.72 {
+	tls internal
+	reverse_proxy 127.0.0.1:8080
+}
+
+# In-app preview origin — proxies to the gateway's preview listener (PREVIEW_PORT=8090),
+# which itself proxies to the local app (Next dev server). Own origin so the app's /api works.
+# Build vArena with VITE_PREVIEW_URL=https://172.190.70.72:8443 so the iframe points here.
+https://172.190.70.72:8443 {
+	tls internal
+	reverse_proxy 127.0.0.1:8090
+}
+
+# --- Option B (preferred if you add a domain): real auto-TLS ---
+# varena.example.com {
+# 	reverse_proxy 127.0.0.1:8080
+# }
