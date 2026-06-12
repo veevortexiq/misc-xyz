@@ -1,0 +1,17 @@
+[Unit]
+Description=vArena server (shared instance)
+After=network.target
+
+[Service]
+Type=simple
+User=vseadmin
+WorkingDirectory=/home/vseadmin/varena/t3code
+Environment=VARENA_SHIM_DIR=/home/vseadmin/varena/shim
+Environment=VARENA_WORKSPACE_ROOT=/home/vseadmin
+ExecStart=/usr/bin/node apps/server/dist/bin.mjs serve --no-browser --host 127.0.0.1 --port 3773 --base-dir /home/vseadmin/varena/data
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
