@@ -226,28 +226,15 @@ function toAuthAccessStreamEvent(
 }
 
 /**
- * Build per-user git environment from gateway-injected headers (X-Varena-Git-Token /
- * X-Varena-Git-Login). Injected into terminal spawns so git/gh run as the signed-in user.
- * Uses GIT_CONFIG_* env so no config files are written (per-process only).
+ * vArena terminal guard env. Prepends VARENA_SHIM_DIR to PATH so shimmed binaries
+ * (git, gh) intercept and refuse — git operations go through the source-control UI,
+ * not the raw terminal. App-level deterrent for a trusted team (a determined user can
+ * still call an absolute path like /usr/bin/git).
  */
-function buildVarenaGitEnv(headers: Record<string, string | undefined>): Record<string, string> {
-  const token = headers["x-varena-git-token"];
-  if (!token) return {};
-  const login = headers["x-varena-git-login"];
-  const env: Record<string, string> = {
-    GH_TOKEN: token,
-    GITHUB_TOKEN: token,
-    GIT_CONFIG_COUNT: login ? "3" : "1",
-    GIT_CONFIG_KEY_0: `url.https://x-access-token:${token}@github.com/.insteadOf`,
-    GIT_CONFIG_VALUE_0: "https://github.com/",
-  };
-  if (login) {
-    env.GIT_CONFIG_KEY_1 = "user.name";
-    env.GIT_CONFIG_VALUE_1 = login;
-    env.GIT_CONFIG_KEY_2 = "user.email";
-    env.GIT_CONFIG_VALUE_2 = `${login}@users.noreply.github.com`;
-  }
-  return env;
+function buildTerminalGuardEnv(): Record<string, string> {
+  const shimDir = process.env.VARENA_SHIM_DIR;
+  if (!shimDir) return {};
+  return { PATH: `${shimDir}:${process.env.PATH ?? ""}` };
 }
 
 const makeWsRpcLayer = (currentSession: AuthenticatedSession, varenaGitEnv: Record<string, string> = {}) =>
@@ -1496,7 +1483,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
             ServerAuthInternalError: (error) => failEnvironmentInternal("internal_error", error),
           }),
         );
-        const varenaGitEnv = buildVarenaGitEnv(request.headers);
+        const varenaGitEnv = buildTerminalGuardEnv();
         const rpcWebSocketHttpEffect = yield* RpcServer.toHttpEffectWebsocket(WsRpcGroup, {
           disableTracing: true,
         }).pipe(
