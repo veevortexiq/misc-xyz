@@ -46,7 +46,6 @@ export function FileSidebarPanel() {
   }, []);
 
   const browseEnvId = threadEnvironmentId ?? primaryEnvId ?? undefined;
-  const api = browseEnvId ? readEnvironmentApi(browseEnvId) : undefined;
 
   const [path, setPath] = useState<string>(ROOT);
   const browseDir = path.endsWith("/") ? path : `${path}/`;
@@ -55,6 +54,8 @@ export function FileSidebarPanel() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!browseEnvId) return;
+    const api = readEnvironmentApi(browseEnvId);
     if (!api) return;
     setLoading(true);
     setError(null);
@@ -66,7 +67,7 @@ export function FileSidebarPanel() {
     } finally {
       setLoading(false);
     }
-  }, [api, browseDir]);
+  }, [browseEnvId, browseDir]);
 
   useEffect(() => {
     void load();
@@ -119,7 +120,7 @@ export function FileSidebarPanel() {
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto p-1">
-        {!api ? (
+        {!browseEnvId ? (
           <p className="px-2 py-6 text-center text-muted-foreground text-xs">Connecting…</p>
         ) : error ? (
           <p className="px-2 py-6 text-center text-destructive text-xs">{error}</p>
