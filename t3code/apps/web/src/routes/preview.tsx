@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ExternalLinkIcon, RefreshCwIcon, GlobeIcon } from "lucide-react";
+import { ArrowLeftIcon, ExternalLinkIcon, RefreshCwIcon, GlobeIcon } from "lucide-react";
 
 /**
  * vArena in-app preview — full-page route at /preview.
@@ -18,6 +18,7 @@ const DEFAULT_PREVIEW_URL =
   (import.meta.env.VITE_PREVIEW_URL as string | undefined)?.trim() || "";
 
 function PreviewRoute() {
+  const navigate = useNavigate();
   const [url, setUrl] = useState<string>(DEFAULT_PREVIEW_URL);
   const [draft, setDraft] = useState<string>(DEFAULT_PREVIEW_URL);
   const [reloadKey, setReloadKey] = useState(0);
@@ -32,6 +33,14 @@ function PreviewRoute() {
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-background text-foreground">
       <header className="flex items-center gap-2 border-input border-b px-4 py-3">
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/" })}
+          className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-muted"
+          title="Back to chat"
+        >
+          <ArrowLeftIcon className="size-3.5" /> Chat
+        </button>
         <GlobeIcon className="size-5 text-muted-foreground" />
         <h1 className="font-semibold text-sm">Preview</h1>
         <form onSubmit={submit} className="ml-2 flex flex-1 items-center gap-2">

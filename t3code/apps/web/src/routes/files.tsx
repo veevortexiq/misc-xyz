@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronUpIcon, FolderIcon, RefreshCwIcon, CopyIcon } from "lucide-react";
+import { ArrowLeftIcon, ChevronUpIcon, FolderIcon, RefreshCwIcon, CopyIcon } from "lucide-react";
 
 import type { EnvironmentId, FilesystemBrowseResult } from "@t3tools/contracts";
 import {
@@ -39,6 +39,7 @@ function parentOf(path: string): string {
 }
 
 function FileBrowserRoute() {
+  const goChat = useNavigate();
   const environmentId = usePrimaryEnvironmentId();
   const api = environmentId ? readEnvironmentApi(environmentId) : undefined;
 
@@ -69,6 +70,14 @@ function FileBrowserRoute() {
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-background text-foreground">
       <header className="flex items-center gap-2 border-input border-b px-4 py-3">
+        <button
+          type="button"
+          onClick={() => goChat({ to: "/" })}
+          className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-muted"
+          title="Back to chat"
+        >
+          <ArrowLeftIcon className="size-3.5" /> Chat
+        </button>
         <FolderIcon className="size-5 text-muted-foreground" />
         <h1 className="font-semibold text-sm">Files</h1>
         <div className="ml-2 flex flex-1 items-center gap-2">
