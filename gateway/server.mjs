@@ -20,6 +20,7 @@ import httpProxy from "http-proxy";
 import jwt from "jsonwebtoken";
 import * as cookie from "cookie";
 import admin from "firebase-admin";
+import { createTokenStore } from "./tokenStore.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -76,6 +77,24 @@ if (allow.length === 0) {
   process.exit(1);
 }
 const emailAllowed = (email) => allowAll || allow.includes(String(email).toLowerCase());
+
+// Per-user git token store (SQLite, encrypted with GATEWAY_SECRET).
+const GIT_TOKEN_DB = env.GIT_TOKEN_DB || path.join(__dirname, "git-tokens.sqlite");
+const tokenStore = createTokenStore({ dbPath: GIT_TOKEN_DB, secret: GATEWAY_SECRET });
+
+// Validate a GitHub PAT and return its login, or null if invalid.
+async function validateGitHubToken(token) {
+  try {
+    const resp = await fetch("https://api.github.com/user", {
+      headers: { Authorization: `Bearer ${token}`, "User-Agent": "varena-gateway", Accept: "application/vnd.github+json" },
+    });
+    if (!resp.ok) return null;
+    const body = await resp.json();
+    return typeof body.login === "string" ? body.login : null;
+  } catch {
+    return null;
+  }
+}
 
 const loginHtml = readFileSync(path.join(__dirname, "public", "login.html"), "utf8")
   .replaceAll("__API_KEY__", FIREBASE_API_KEY)
@@ -135,6 +154,16 @@ function readBody(req, limit = 1_000_000) {
   });
 }
 
+// Inject verified per-user identity + that user's git token for vArena. Loopback only;
+// strip any client-supplied spoof of these headers first.
+function injectUserHeaders(req, email) {
+  delete req.headers["x-varena-user"];
+  delete req.headers["x-varena-git-token"];
+  req.headers["x-varena-user"] = email;
+  const token = tokenStore.getToken(email);
+  if (token) req.headers["x-varena-git-token"] = token;
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, "http://gateway.local");
 
@@ -182,15 +211,53 @@ const server = createServer(async (req, res) => {
     return res.end("unauthorized");
   }
 
+  // --- per-user git token (GitHub PAT) — entered via vArena settings, stored per email ---
+  if (url.pathname === "/__varena/git-token") {
+    if (req.method === "GET") {
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify(tokenStore.getMeta(session.email)));
+    }
+    if (req.method === "POST") {
+      try {
+        const { token } = JSON.parse((await readBody(req)) || "{}");
+        if (!token || typeof token !== "string") {
+          res.writeHead(400, { "content-type": "application/json" });
+          return res.end(JSON.stringify({ error: "token required" }));
+        }
+        const login = await validateGitHubToken(token.trim());
+        if (!login) {
+          res.writeHead(400, { "content-type": "application/json" });
+          return res.end(JSON.stringify({ error: "invalid GitHub token" }));
+        }
+        tokenStore.set(session.email, { token: token.trim(), provider: "github", login });
+        res.writeHead(200, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ connected: true, provider: "github", login }));
+      } catch {
+        res.writeHead(400, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ error: "bad request" }));
+      }
+    }
+    if (req.method === "DELETE") {
+      tokenStore.remove(session.email);
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ connected: false }));
+    }
+    res.writeHead(405, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ error: "method not allowed" }));
+  }
+
+  injectUserHeaders(req, session.email);
   proxy.web(req, res);
 });
 
 // WebSocket upgrades — vArena uses WS; authenticate the cookie before proxying.
 server.on("upgrade", (req, socket, head) => {
-  if (!getSession(req)) {
+  const session = getSession(req);
+  if (!session) {
     socket.destroy();
     return;
   }
+  injectUserHeaders(req, session.email);
   proxy.ws(req, socket, head);
 });
 
