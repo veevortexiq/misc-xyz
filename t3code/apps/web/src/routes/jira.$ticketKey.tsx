@@ -1,12 +1,28 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeftIcon, ExternalLinkIcon } from "lucide-react";
+import { ArrowLeftIcon, ExternalLinkIcon, PlusIcon } from "lucide-react";
+
+import { scopeThreadRef } from "@t3tools/client-runtime";
+import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { useComposerDraftStore } from "../composerDraftStore";
 
 type Ticket = { key: string; summary: string; status: string; description: string; url: string };
 
 function JiraTicketRoute() {
   const navigate = useNavigate();
   const { ticketKey } = Route.useParams();
+  const search = Route.useSearch();
+  const canAdd = Boolean(search.env && search.thr);
+
+  const addToChat = (t: Ticket) => {
+    if (!search.env || !search.thr) return;
+    const ref = scopeThreadRef(search.env as EnvironmentId, search.thr as ThreadId);
+    const store = useComposerDraftStore.getState();
+    const current = store.getComposerDraft(ref)?.prompt ?? "";
+    const block = `[${t.key}] ${t.summary}\n${t.description}`.trim();
+    store.setPrompt(ref, current.trim().length > 0 ? `${current.trimEnd()}\n\n${block}\n` : `${block}\n`);
+    navigate({ to: "/$environmentId/$threadId", params: { environmentId: search.env, threadId: search.thr } });
+  };
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +73,16 @@ function JiraTicketRoute() {
           </span>
         ) : null}
         <div className="flex-1" />
+        {ticket && canAdd ? (
+          <button
+            type="button"
+            onClick={() => addToChat(ticket)}
+            className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 font-medium text-primary-foreground text-xs hover:opacity-90"
+            title="Add this ticket to the chat"
+          >
+            <PlusIcon className="size-3.5" /> Add to chat
+          </button>
+        ) : null}
         {ticket?.url ? (
           <a
             href={ticket.url}
@@ -90,5 +116,9 @@ function JiraTicketRoute() {
 }
 
 export const Route = createFileRoute("/jira/$ticketKey")({
+  validateSearch: (search: Record<string, unknown>): { env?: string; thr?: string } => ({
+    env: typeof search.env === "string" ? search.env : undefined,
+    thr: typeof search.thr === "string" ? search.thr : undefined,
+  }),
   component: JiraTicketRoute,
 });

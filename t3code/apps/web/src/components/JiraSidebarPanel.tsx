@@ -112,7 +112,16 @@ export function JiraSidebarPanel() {
               <li key={t.key} className="group flex items-start">
                 <button
                   type="button"
-                  onClick={() => navigate({ to: "/jira/$ticketKey", params: { ticketKey: t.key } })}
+                  onClick={() =>
+                    navigate({
+                      to: "/jira/$ticketKey",
+                      params: { ticketKey: t.key },
+                      search:
+                        inThread && environmentId && threadId
+                          ? { env: String(environmentId), thr: String(threadId) }
+                          : {},
+                    })
+                  }
                   className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left hover:bg-muted"
                   title="Open details"
                 >
