@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "@tanstack/react-router";
 import { ChevronRightIcon, ChevronUpIcon, RefreshCwIcon } from "lucide-react";
 
-import { scopeThreadRef } from "@t3tools/client-runtime";
+import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime";
 import type { EnvironmentId, FilesystemBrowseResult, ThreadId } from "@t3tools/contracts";
 
 import {
@@ -11,6 +11,7 @@ import {
 } from "../environments/runtime";
 import { readEnvironmentApi } from "../environmentApi";
 import { useComposerDraftStore } from "../composerDraftStore";
+import { selectProjectByRef, selectThreadByRef, useStore } from "../store";
 
 /**
  * vArena file panel — replaces the thread list in the sidebar when in "Files" mode.
@@ -47,7 +48,24 @@ export function FileSidebarPanel() {
 
   const browseEnvId = threadEnvironmentId ?? primaryEnvId ?? undefined;
 
+  // Resolve the active thread's project cwd so we browse ITS files (not the global root).
+  const threadCwd = useStore((state) => {
+    if (!threadEnvironmentId || !threadId) return null;
+    const thread = selectThreadByRef(state, scopeThreadRef(threadEnvironmentId, threadId));
+    if (!thread) return null;
+    const project = selectProjectByRef(
+      state,
+      scopeProjectRef(threadEnvironmentId, thread.projectId),
+    );
+    return project?.cwd ?? null;
+  });
+
   const [path, setPath] = useState<string>(ROOT);
+
+  // Jump to the thread's project folder when it resolves / changes.
+  useEffect(() => {
+    if (threadCwd) setPath(threadCwd);
+  }, [threadCwd]);
   const browseDir = path.endsWith("/") ? path : `${path}/`;
   const [data, setData] = useState<FilesystemBrowseResult | null>(null);
   const [loading, setLoading] = useState(false);
