@@ -67,7 +67,7 @@ function FileBrowserRoute() {
   const currentDir = data?.parentPath ?? path;
 
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-background text-foreground">
       <header className="flex items-center gap-2 border-input border-b px-4 py-3">
         <FolderIcon className="size-5 text-muted-foreground" />
         <h1 className="font-semibold text-sm">Files</h1>
