@@ -489,8 +489,9 @@ export const makeWorkspaceEntries = Effect.gen(function* () {
       const lowerPrefix = prefix.toLowerCase();
       const entries: Array<{ readonly name: string; readonly fullPath: string }> = [];
       for (const dirent of dirents) {
+        const kindIncluded = dirent.isDirectory() || (input.includeFiles === true && dirent.isFile());
         if (
-          dirent.isDirectory() &&
+          kindIncluded &&
           dirent.name.toLowerCase().startsWith(lowerPrefix) &&
           (showHidden || !dirent.name.startsWith("."))
         ) {

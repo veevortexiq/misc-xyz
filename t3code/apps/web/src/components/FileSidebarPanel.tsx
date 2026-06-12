@@ -78,7 +78,7 @@ export function FileSidebarPanel() {
     setLoading(true);
     setError(null);
     try {
-      setData(await api.filesystem.browse({ partialPath: browseDir }));
+      setData(await api.filesystem.browse({ partialPath: browseDir, includeFiles: true }));
     } catch (e) {
       setError((e as Error)?.message ?? "Could not read this folder.");
       setData(null);
