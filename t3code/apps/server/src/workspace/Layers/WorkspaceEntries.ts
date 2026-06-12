@@ -164,20 +164,35 @@ const resolveBrowseTarget = (
       });
     }
 
+    let resolved: string;
     if (!isExplicitRelativePath(input.partialPath)) {
-      return pathService.resolve(expandHomePath(input.partialPath, pathService));
-    }
-
-    if (!input.cwd) {
+      resolved = pathService.resolve(expandHomePath(input.partialPath, pathService));
+    } else if (!input.cwd) {
       return yield* new WorkspaceEntriesBrowseError({
         cwd: input.cwd,
         partialPath: input.partialPath,
         operation: "workspaceEntries.resolveBrowseTarget",
         detail: "Relative filesystem browse paths require a current project.",
       });
+    } else {
+      resolved = pathService.resolve(expandHomePath(input.cwd, pathService), input.partialPath);
     }
 
-    return pathService.resolve(expandHomePath(input.cwd, pathService), input.partialPath);
+    // vArena: confine all filesystem browsing to the configured workspace root.
+    const workspaceRoot = process.env.VARENA_WORKSPACE_ROOT;
+    if (workspaceRoot) {
+      const normRoot = pathService.resolve(workspaceRoot);
+      if (resolved !== normRoot && !resolved.startsWith(`${normRoot}/`)) {
+        return yield* new WorkspaceEntriesBrowseError({
+          cwd: input.cwd,
+          partialPath: input.partialPath,
+          operation: "workspaceEntries.resolveBrowseTarget",
+          detail: "Path is outside the vArena workspace.",
+        });
+      }
+    }
+
+    return resolved;
   });
 
 export const makeWorkspaceEntries = Effect.gen(function* () {

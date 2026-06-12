@@ -42,8 +42,9 @@ function FileBrowserRoute() {
   const environmentId = usePrimaryEnvironmentId();
   const api = environmentId ? readEnvironmentApi(environmentId) : undefined;
 
-  const [path, setPath] = useState<string>("/");
-  const [pathInput, setPathInput] = useState<string>("/");
+  const root = (import.meta.env.VITE_WORKSPACE_ROOT as string | undefined)?.trim() || "/";
+  const [path, setPath] = useState<string>(root);
+  const [pathInput, setPathInput] = useState<string>(root);
 
   const browseDir = useMemo(() => (path.endsWith("/") ? path : `${path}/`), [path]);
 
