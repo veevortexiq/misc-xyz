@@ -82,6 +82,41 @@ const emailAllowed = (email) => allowAll || allow.includes(String(email).toLower
 const GIT_TOKEN_DB = env.GIT_TOKEN_DB || path.join(__dirname, "git-tokens.sqlite");
 const tokenStore = createTokenStore({ dbPath: GIT_TOKEN_DB, secret: GATEWAY_SECRET });
 
+// --- Jira (Cloud) integration. Token stays server-side; client never sees it. ---
+const JIRA_SITE = (env.JIRA_CLOUD_SITE_URL || "").replace(/\/$/, "");
+const JIRA_AUTH = env.JIRA_CLOUD_API_TOKEN_BASE64; // base64(email:apiToken)
+
+// Flatten Atlassian Document Format (ADF) description to plain text.
+function adfToText(node) {
+  if (!node) return "";
+  if (Array.isArray(node)) return node.map(adfToText).join("");
+  let s = "";
+  if (node.type === "text" && typeof node.text === "string") s += node.text;
+  if (node.content) s += adfToText(node.content);
+  if (node.type === "paragraph" || node.type === "heading" || node.type === "listItem") s += "\n";
+  return s;
+}
+
+async function fetchJiraTickets(jql) {
+  if (!JIRA_SITE || !JIRA_AUTH) return { error: "Jira not configured" };
+  const url =
+    `${JIRA_SITE}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}` +
+    `&maxResults=50&fields=summary,status,description`;
+  const resp = await fetch(url, {
+    headers: { Authorization: `Basic ${JIRA_AUTH}`, Accept: "application/json" },
+  });
+  if (!resp.ok) return { error: `Jira responded ${resp.status}` };
+  const body = await resp.json();
+  const tickets = (body.issues ?? []).map((i) => ({
+    key: i.key,
+    summary: i.fields?.summary ?? "",
+    status: i.fields?.status?.name ?? "",
+    description: adfToText(i.fields?.description).replace(/\n{3,}/g, "\n\n").trim().slice(0, 4000),
+    url: `${JIRA_SITE}/browse/${i.key}`,
+  }));
+  return { tickets };
+}
+
 // Validate a GitHub PAT and return its login, or null if invalid.
 async function validateGitHubToken(token) {
   try {
@@ -249,6 +284,19 @@ const server = createServer(async (req, res) => {
     }
     res.writeHead(405, { "content-type": "application/json" });
     return res.end(JSON.stringify({ error: "method not allowed" }));
+  }
+
+  // --- Jira tickets (Cloud) ---
+  if (url.pathname === "/__varena/jira/tickets") {
+    try {
+      const jql = url.searchParams.get("jql") || "updated >= -30d ORDER BY updated DESC";
+      const result = await fetchJiraTickets(jql);
+      res.writeHead(result.error ? 502 : 200, { "content-type": "application/json" });
+      return res.end(JSON.stringify(result));
+    } catch {
+      res.writeHead(502, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ error: "jira request failed" }));
+    }
   }
 
   injectUserHeaders(req, session.email);

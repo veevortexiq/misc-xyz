@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { FolderIcon, GlobeIcon, MessageSquareIcon } from "lucide-react";
+import { FolderIcon, GlobeIcon, MessageSquareIcon, TicketIcon } from "lucide-react";
 
 import ThreadSidebar from "./Sidebar";
 import { FileSidebarPanel } from "./FileSidebarPanel";
+import { JiraSidebarPanel } from "./JiraSidebarPanel";
 import { Sidebar, SidebarProvider, SidebarRail } from "./ui/sidebar";
 import {
   clearShortcutModifierState,
@@ -15,7 +16,7 @@ const THREAD_SIDEBAR_MIN_WIDTH = 13 * 16;
 const THREAD_MAIN_CONTENT_MIN_WIDTH = 40 * 16;
 export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const [sidebarMode, setSidebarMode] = useState<"chat" | "files">("chat");
+  const [sidebarMode, setSidebarMode] = useState<"chat" | "files" | "jira">("chat");
 
   useEffect(() => {
     const onWindowKeyDown = (event: KeyboardEvent) => {
@@ -72,27 +73,39 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         <div className="flex gap-1 border-border border-b px-2 py-2">
           <button
             type="button"
-            onClick={() => setSidebarMode((m) => (m === "files" ? "chat" : "files"))}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs hover:bg-muted"
+            onClick={() => setSidebarMode("chat")}
+            className={`flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1.5 text-xs ${sidebarMode === "chat" ? "bg-muted font-medium" : "hover:bg-muted"}`}
           >
-            {sidebarMode === "files" ? (
-              <>
-                <MessageSquareIcon className="size-3.5" /> Chat
-              </>
-            ) : (
-              <>
-                <FolderIcon className="size-3.5" /> Files
-              </>
-            )}
+            <MessageSquareIcon className="size-3.5" /> Chat
+          </button>
+          <button
+            type="button"
+            onClick={() => setSidebarMode("files")}
+            className={`flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1.5 text-xs ${sidebarMode === "files" ? "bg-muted font-medium" : "hover:bg-muted"}`}
+          >
+            <FolderIcon className="size-3.5" /> Files
+          </button>
+          <button
+            type="button"
+            onClick={() => setSidebarMode("jira")}
+            className={`flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1.5 text-xs ${sidebarMode === "jira" ? "bg-muted font-medium" : "hover:bg-muted"}`}
+          >
+            <TicketIcon className="size-3.5" /> Jira
           </button>
           <Link
             to="/preview"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs hover:bg-muted"
+            className="flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1.5 text-xs hover:bg-muted"
           >
             <GlobeIcon className="size-3.5" /> Preview
           </Link>
         </div>
-        {sidebarMode === "files" ? <FileSidebarPanel /> : <ThreadSidebar />}
+        {sidebarMode === "files" ? (
+          <FileSidebarPanel />
+        ) : sidebarMode === "jira" ? (
+          <JiraSidebarPanel />
+        ) : (
+          <ThreadSidebar />
+        )}
         <SidebarRail />
       </Sidebar>
       {children}
