@@ -14,5 +14,15 @@ sudo rm -f /etc/systemd/system/varena.service /etc/systemd/system/varena-gateway
 sudo systemctl daemon-reload
 rm -rf "$HOME/varena"
 
-echo "vArena removed. Secrets kept in ~/.varena-secrets."
+# Project workspaces to delete (vArena projects living outside ~/varena). EXPLICIT list only —
+# never touch ~/app (orchestrator), ~/vse (caddy), ~/node_modules, ~/.varena-secrets.
+PROJECT_DIRS=(
+  "$HOME/FolderVEe"
+  "$HOME/Hey"
+)
+for d in "${PROJECT_DIRS[@]}"; do
+  if [ -e "$d" ]; then rm -rf "$d"; echo "deleted project: $d"; fi
+done
+
+echo "vArena removed + project workspaces deleted. Secrets kept in ~/.varena-secrets."
 echo "Orchestrator (8080) + Caddy domain untouched. Redeploy: bash deploy/up.sh (after cloning)."

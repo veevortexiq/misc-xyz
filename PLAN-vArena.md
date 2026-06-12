@@ -107,3 +107,58 @@ Each stage testable locally before the box is touched.
 - `projection_projects` columns: project_id, title, workspace_root, model_selection, scripts,
   timestamps — **no owner/user**. Single base-dir via `deriveServerPaths(baseDir)`.
 - Source repo: `github.com/pingdotgg/t3code` (public, pnpm monorepo, `apps/server/src` real TS).
+
+---
+
+# Plan: Per-user source control via PAT (shared instance, app-level injection)
+
+Chosen: Option 2 — keep ONE shared vArena, make git/source-control use each logged-in
+user's own GitHub PAT. Trusted-team; app-level (NOT terminal-proof against a malicious user).
+
+## Why it's non-trivial
+t3 source control = the `gh`/`glab`/`az`/bitbucket CLIs, which auth via the box's single
+shared login. vArena has no per-user identity (gateway injects one bearer; t3 sees no users).
+So we must (a) flow user identity gateway→vArena, (b) store each user's PAT, (c) inject that
+PAT into git/gh executions per the requesting user.
+
+## Architecture
+```
+Gateway (knows Firebase email)
+  ├─ /__varena/account page: user pastes GitHub PAT → validated (gh api /user) → stored ENCRYPTED, keyed by email
+  └─ on proxy (HTTP + WS upgrade) injects headers:  X-Varena-User: <email>   X-Varena-Git-Token: <pat>
+        (loopback gateway→vArena only; never public)
+        ▼
+vArena (forked): reads headers at WS connect → binds {user, gitToken} to that session →
+  injects GH_TOKEN / git credential + git user.name/email into:
+   - source-control CLI execs (GitHubCli/GitLabCli/…)
+   - PTY/terminal spawns  (user's own `git push`/`gh` uses their PAT)
+   - agent/provider spawns (agent-run git uses their PAT)
+```
+
+## Phases
+**MVP (smallest fork — terminal first)**
+1. Gateway: encrypted PAT store (keyed by email) + `/__varena/account` page + GitHub validation.
+2. Gateway: inject `X-Varena-User` + `X-Varena-Git-Token` on WS upgrade (+ HTTP).
+3. vArena fork: at WS connect, capture the two headers onto the session.
+4. vArena fork: inject `GH_TOKEN` + git credential + `git config user.name/email` into PTY spawn env.
+   → A user's terminal git/gh now uses THEIR PAT and commits under THEIR identity.
+
+**Phase 2 (full coverage)**
+5. Same injection into agent/provider spawns (agent-run git).
+6. Same into t3's source-control RPC actions (the in-app GitHub/PR UI).
+7. Per-provider tokens (GitLab/Bitbucket/Azure) if needed.
+
+## Security caveats (state to users)
+- App-level: tokens live in the gateway store (encrypt at rest, perms 600) and in per-session
+  process env. A user with shell could read their own env; cross-user leakage prevented only by
+  not sharing a session — acceptable for a trusted team, NOT a hard boundary.
+- Shared workspace: same project files are shared; only identity/creds are individual, not repos.
+
+## Work items
+- [ ] Gateway: PAT store (AES-encrypted, SQLite/JSON on box) + account page + `gh api /user` validation
+- [ ] Gateway: header injection (user + token) on HTTP + WS
+- [ ] vArena fork: session identity from headers (WS connect handler)
+- [ ] vArena fork: PTY spawn env injection (GH_TOKEN + git credential + user.name/email)  [MVP done]
+- [ ] vArena fork: agent/provider spawn injection  [Phase 2]
+- [ ] vArena fork: source-control CLI exec injection  [Phase 2]
+- [ ] Build + deploy + 2-user test (verify commits attributed to each user's identity)
