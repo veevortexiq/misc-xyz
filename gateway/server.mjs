@@ -289,7 +289,17 @@ const server = createServer(async (req, res) => {
   // --- Jira tickets (Cloud) ---
   if (url.pathname === "/__varena/jira/tickets") {
     try {
-      const jql = url.searchParams.get("jql") || "updated >= -30d ORDER BY updated DESC";
+      let jql = url.searchParams.get("jql");
+      if (!jql) {
+        const q = (url.searchParams.get("q") || "").trim();
+        if (q) {
+          jql = /^[A-Za-z][A-Za-z0-9]+-\d+$/.test(q)
+            ? `key = "${q.toUpperCase()}"`
+            : `text ~ "${q.replace(/["\\]/g, " ")}" ORDER BY updated DESC`;
+        } else {
+          jql = "updated >= -30d ORDER BY updated DESC";
+        }
+      }
       const result = await fetchJiraTickets(jql);
       res.writeHead(result.error ? 502 : 200, { "content-type": "application/json" });
       return res.end(JSON.stringify(result));
