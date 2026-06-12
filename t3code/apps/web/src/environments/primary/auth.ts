@@ -252,30 +252,13 @@ function isTransientBootstrapError(error: unknown): boolean {
 }
 
 async function bootstrapServerAuth(): Promise<ServerAuthGateState> {
-  const bootstrapCredential = getDesktopBootstrapCredential();
-  const currentSession = await fetchSessionState();
-  if (currentSession.authenticated) {
-    return { status: "authenticated" };
-  }
-
-  if (!bootstrapCredential) {
-    return {
-      status: "requires-auth",
-      auth: currentSession.auth,
-    };
-  }
-
-  try {
-    await exchangeBootstrapCredential(bootstrapCredential);
-    await waitForAuthenticatedSessionAfterBootstrap();
-    return { status: "authenticated" };
-  } catch (error) {
-    return {
-      status: "requires-auth",
-      auth: currentSession.auth,
-      errorMessage: error instanceof Error ? error.message : "Authentication failed.",
-    };
-  }
+  // vArena is always served behind the Firebase auth gateway, which injects a valid bearer
+  // token on every proxied request — the browser is therefore always authenticated at the
+  // t3 layer. t3's own pairing flow is unnecessary here, so it is skipped entirely.
+  void getDesktopBootstrapCredential;
+  void exchangeBootstrapCredential;
+  void waitForAuthenticatedSessionAfterBootstrap;
+  return { status: "authenticated" };
 }
 
 export async function submitServerAuthCredential(credential: string): Promise<void> {

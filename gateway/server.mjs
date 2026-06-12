@@ -12,6 +12,7 @@
  * NOT per-user isolation — everyone shares the one vArena instance.
  */
 import http from "node:http";
+import https from "node:https";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -40,6 +41,15 @@ const COOKIE_NAME = "varena_gw";
 // so the app's relative /api calls resolve to the app, not vArena. Disabled unless PREVIEW_PORT set.
 const PREVIEW_PORT = env.PREVIEW_PORT ? Number(env.PREVIEW_PORT) : null;
 const PREVIEW_TARGET = env.PREVIEW_TARGET || "http://127.0.0.1:3000";
+
+// Optional direct TLS: when TLS_CERT + TLS_KEY are set the gateway serves HTTPS itself
+// (Node serves the one cert regardless of SNI — needed for bare-IP access where browsers
+// send no SNI). Without them it serves HTTP (e.g. behind a TLS-terminating proxy).
+const TLS_CERT = env.TLS_CERT;
+const TLS_KEY = env.TLS_KEY;
+const tlsOptions = TLS_CERT && TLS_KEY ? { cert: readFileSync(TLS_CERT), key: readFileSync(TLS_KEY) } : null;
+const createServer = (handler) =>
+  tlsOptions ? https.createServer(tlsOptions, handler) : http.createServer(handler);
 
 // GOOGLE_APPLICATION_CREDENTIALS must point at the service-account JSON.
 const required = { T3_BEARER, FIREBASE_PROJECT_ID, FIREBASE_API_KEY, GATEWAY_SECRET };
@@ -125,7 +135,7 @@ function readBody(req, limit = 1_000_000) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const url = new URL(req.url, "http://gateway.local");
 
   // --- auth endpoints (gateway-owned, prefixed to avoid colliding with vArena) ---
@@ -206,7 +216,7 @@ if (PREVIEW_PORT) {
   });
   // Proxy EVERY path (/, /api, /_next, …) to the app so it runs at its own origin root.
   // No vArena bearer here — this is the user's app, not vArena.
-  const previewServer = http.createServer((req, res) => {
+  const previewServer = createServer((req, res) => {
     if (!getSession(req)) {
       res.writeHead(401, { "content-type": "text/plain" });
       return res.end("unauthorized");
