@@ -225,7 +225,32 @@ function toAuthAccessStreamEvent(
   }
 }
 
-const makeWsRpcLayer = (currentSession: AuthenticatedSession) =>
+/**
+ * Build per-user git environment from gateway-injected headers (X-Varena-Git-Token /
+ * X-Varena-Git-Login). Injected into terminal spawns so git/gh run as the signed-in user.
+ * Uses GIT_CONFIG_* env so no config files are written (per-process only).
+ */
+function buildVarenaGitEnv(headers: Record<string, string | undefined>): Record<string, string> {
+  const token = headers["x-varena-git-token"];
+  if (!token) return {};
+  const login = headers["x-varena-git-login"];
+  const env: Record<string, string> = {
+    GH_TOKEN: token,
+    GITHUB_TOKEN: token,
+    GIT_CONFIG_COUNT: login ? "3" : "1",
+    GIT_CONFIG_KEY_0: `url.https://x-access-token:${token}@github.com/.insteadOf`,
+    GIT_CONFIG_VALUE_0: "https://github.com/",
+  };
+  if (login) {
+    env.GIT_CONFIG_KEY_1 = "user.name";
+    env.GIT_CONFIG_VALUE_1 = login;
+    env.GIT_CONFIG_KEY_2 = "user.email";
+    env.GIT_CONFIG_VALUE_2 = `${login}@users.noreply.github.com`;
+  }
+  return env;
+}
+
+const makeWsRpcLayer = (currentSession: AuthenticatedSession, varenaGitEnv: Record<string, string> = {}) =>
   WsRpcGroup.toLayer(
     Effect.gen(function* () {
       const currentSessionId = currentSession.sessionId;
@@ -1294,7 +1319,11 @@ const makeWsRpcLayer = (currentSession: AuthenticatedSession) =>
             "rpc.aggregate": "review",
           }),
         [WS_METHODS.terminalOpen]: (input) =>
-          observeRpcEffect(WS_METHODS.terminalOpen, terminalManager.open(input), {
+          observeRpcEffect(
+            WS_METHODS.terminalOpen,
+            // Inject the signed-in user's git env (gateway wins over any client-supplied env).
+            terminalManager.open({ ...input, env: { ...input.env, ...varenaGitEnv } }),
+            {
             "rpc.aggregate": "terminal",
           }),
         [WS_METHODS.terminalAttach]: (input) =>
@@ -1467,11 +1496,12 @@ export const websocketRpcRouteLayer = Layer.unwrap(
             ServerAuthInternalError: (error) => failEnvironmentInternal("internal_error", error),
           }),
         );
+        const varenaGitEnv = buildVarenaGitEnv(request.headers);
         const rpcWebSocketHttpEffect = yield* RpcServer.toHttpEffectWebsocket(WsRpcGroup, {
           disableTracing: true,
         }).pipe(
           Effect.provide(
-            makeWsRpcLayer(session).pipe(
+            makeWsRpcLayer(session, varenaGitEnv).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),
               Layer.provide(ProviderMaintenanceRunner.layer),
               Layer.provide(

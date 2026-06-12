@@ -159,9 +159,14 @@ function readBody(req, limit = 1_000_000) {
 function injectUserHeaders(req, email) {
   delete req.headers["x-varena-user"];
   delete req.headers["x-varena-git-token"];
+  delete req.headers["x-varena-git-login"];
   req.headers["x-varena-user"] = email;
   const token = tokenStore.getToken(email);
-  if (token) req.headers["x-varena-git-token"] = token;
+  if (token) {
+    req.headers["x-varena-git-token"] = token;
+    const meta = tokenStore.getMeta(email);
+    if (meta.login) req.headers["x-varena-git-login"] = meta.login;
+  }
 }
 
 const server = createServer(async (req, res) => {
